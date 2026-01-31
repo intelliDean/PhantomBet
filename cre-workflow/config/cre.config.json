@@ -1,0 +1,54 @@
+{
+    "workflow": {
+        "name": "prediction-market-settlement",
+        "version": "1.0.0",
+        "description": "AI-powered settlement workflow for prediction markets"
+    },
+    "triggers": [
+        {
+            "type": "time",
+            "schedule": "0 * * * *",
+            "description": "Check for markets ready to settle every hour"
+        },
+        {
+            "type": "event",
+            "source": "blockchain",
+            "event": "MarketReadyForSettlement"
+        }
+    ],
+    "dataSources": [
+        {
+            "name": "newsapi",
+            "type": "http",
+            "url": "https://newsapi.org/v2/everything",
+            "authentication": "api-key"
+        },
+        {
+            "name": "sportsdata",
+            "type": "http",
+            "url": "https://api.sportsdata.io/v3",
+            "authentication": "api-key"
+        },
+        {
+            "name": "openai",
+            "type": "http",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "authentication": "bearer"
+        }
+    ],
+    "blockchains": [
+        {
+            "name": "arbitrum-sepolia",
+            "chainId": 421614,
+            "rpc": "https://sepolia-rollup.arbitrum.io/rpc"
+        }
+    ],
+    "payments": {
+        "standard": "x402",
+        "enabled": true
+    },
+    "consensus": {
+        "minimumSources": 3,
+        "confidenceThreshold": 0.8
+    }
+}
