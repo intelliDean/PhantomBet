@@ -7,6 +7,8 @@ cache/
 artifacts/
 typechain-types/
 
+target/
+
 # Frontend
 dist/
 build/
