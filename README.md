@@ -7,7 +7,7 @@ A privacy-first decentralized prediction market with AI-powered settlement using
 ## 🎯 Hackathon Submission
 **Chainlink Convergence Hackathon 2026**
 - **Tracks**: Prediction Markets, CRE & AI, Risk & Compliance
-- **Team**: [Your Team Name]
+- **Team**: One Block
 
 ## 🚀 Features
 
