@@ -128,6 +128,41 @@ const MarketCard = ({ market }: MarketCardProps) => {
         }
     };
 
+    const handleClaimWinnings = async () => {
+        if (!isConnected) {
+            toast.error('Please connect your wallet');
+            return;
+        }
+
+        try {
+            const hash = await writeContractAsync({
+                address: PREDICTION_MARKET_ADDRESS,
+                abi: PREDICTION_MARKET_ABI,
+                functionName: 'claimWinnings',
+                args: [market.id],
+            });
+
+            toast.loading('Claiming winnings...', { id: 'claim-winnings' });
+
+            const receipt = await publicClient?.waitForTransactionReceipt({ hash });
+
+            if (receipt?.status === 'success') {
+                toast.success('Winnings claimed successfully!', { id: 'claim-winnings' });
+            } else {
+                toast.error('Claim transaction failed.', { id: 'claim-winnings' });
+            }
+        } catch (error: any) {
+            console.error(error);
+            if (error.message && error.message.includes('message channel closed')) {
+                toast.error('Wallet connection lost. Please refresh the page.', { id: 'claim-winnings' });
+            } else if (error.message && error.message.includes('NoWinnings')) {
+                toast.error('You have no winnings to claim.', { id: 'claim-winnings' });
+            } else {
+                toast.error('Failed to claim winnings', { id: 'claim-winnings' });
+            }
+        }
+    };
+
     return (
         <div className="market-card glass transition-all glow-hover">
             <div className="card-status">
@@ -196,7 +231,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
             {market.settled && (
                 <div className="settled-info">
                     <p>Result: <span className="winner">{outcomes[Number(market.finalOutcomeId)] || market.finalOutcomeId.toString()}</span></p>
-                    <button className="btn-claim">Claim Winnings</button>
+                    <button className="btn-claim" onClick={handleClaimWinnings}>Claim Winnings</button>
                 </div>
             )}
 
