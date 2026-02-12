@@ -32,4 +32,11 @@ logs/
 coverage/
 .nyc_output/
 
-docs
+# CRE
+cre-workflow/tmp.*
+cre-workflow/config.*.json
+secrets.yaml
+bun.lock*
+
+# Docs
+docs/

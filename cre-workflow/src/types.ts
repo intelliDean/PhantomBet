@@ -3,13 +3,13 @@
  */
 
 export interface Market {
-    id: number;
+    id: bigint;
     question: string;
     outcomes: string[];
-    bettingDeadline: number;
-    revealDeadline: number;
+    bettingDeadline: bigint;
+    revealDeadline: bigint;
     settled: boolean;
-    finalOutcomeId: number;
+    finalOutcomeId: bigint;
     totalPool: bigint;
 }
 
@@ -29,11 +29,11 @@ export interface AIAnalysisResult {
 }
 
 export interface SettlementResult {
-    marketId: number;
+    marketId: bigint;
     outcome: string;
-    outcomeIndex: number;
     consensus: boolean;
     confidence: number;
+    txStatus?: string;
     txHash?: string;
 }
 
@@ -44,36 +44,4 @@ export interface ConsensusData {
     totalSources: number;
     confidence: number;
     sources: DataSource[];
-}
-
-export interface NewsAPIResponse {
-    status: string;
-    totalResults: number;
-    articles: Array<{
-        title: string;
-        description: string;
-        content: string;
-        publishedAt: string;
-        source: {
-            name: string;
-        };
-    }>;
-}
-
-export interface OpenAIRequest {
-    model: string;
-    messages: Array<{
-        role: 'system' | 'user' | 'assistant';
-        content: string;
-    }>;
-    temperature: number;
-    max_tokens: number;
-}
-
-export interface OpenAIResponse {
-    choices: Array<{
-        message: {
-            content: string;
-        };
-    }>;
 }

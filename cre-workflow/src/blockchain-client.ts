@@ -1,147 +1,162 @@
 /**
- * Blockchain interaction utilities for PhantomBet CRE Workflow
+ * Blockchain interaction utilities for PhantomBet CRE Workflow using official SDK
  */
 
-import { ethers } from 'ethers';
-import type { Market, SettlementResult } from './types.js';
+import {
+    EVMClient,
+    encodeCallMsg,
+    hexToBytes,
+    bytesToHex,
+    type Runtime,
+} from "@chainlink/cre-sdk";
+import {
+    parseAbi,
+    encodeFunctionData,
+    decodeFunctionResult,
+    type Address,
+} from "viem";
+import type { Market } from "./types.js";
 
-// ABI fragments for the contracts
-const PREDICTION_MARKET_ABI = [
-    'function nextMarketId() view returns (uint256)',
-    'function markets(uint256) view returns (uint256 id, string question, uint256 bettingDeadline, uint256 revealDeadline, bool revealed, uint256 finalOutcomeId, bool settled, uint256 totalPool)',
-    'function getMarketOutcomes(uint256 marketId) view returns (string[] memory)',
-];
-
-const ORACLE_ABI = [
-    'function receiveSettlement(uint256 marketId, string calldata outcome, bytes calldata proof) external',
-];
+// ABI for the PredictionMarket
+const MARKET_ABI = parseAbi([
+    "function nextMarketId() view returns (uint256)",
+    "function markets(uint256 marketId) view returns (uint256 id, string question, uint256 bettingDeadline, uint256 revealDeadline, bool revealed, uint256 finalOutcomeId, bool settled, uint256 totalPool)",
+    "function getMarketOutcomes(uint256 marketId) view returns (string[])",
+]);
 
 export class BlockchainClient {
-    private provider: ethers.JsonRpcProvider;
-    private wallet: ethers.Wallet;
-    private predictionMarket: ethers.Contract;
-    private oracle: ethers.Contract;
+    private evmClient: EVMClient;
+    private chainSelector: bigint;
 
-    constructor(
-        rpcUrl: string,
-        privateKey: string,
-        predictionMarketAddress: string,
-        oracleAddress: string
-    ) {
-        this.provider = new ethers.JsonRpcProvider(rpcUrl);
-        this.wallet = new ethers.Wallet(privateKey, this.provider);
-
-        this.predictionMarket = new ethers.Contract(
-            predictionMarketAddress,
-            PREDICTION_MARKET_ABI,
-            this.wallet
-        );
-
-        this.oracle = new ethers.Contract(
-            oracleAddress,
-            ORACLE_ABI,
-            this.wallet
-        );
+    constructor(chainSelector: bigint = 2183018362218727504n) {
+        this.chainSelector = chainSelector;
+        this.evmClient = new EVMClient(this.chainSelector);
     }
 
     /**
      * Get all markets that are ready to be settled
-     * (past reveal deadline and not yet settled)
      */
-    async getMarketsToSettle(): Promise<Market[]> {
+    async getMarketsToSettle(runtime: Runtime<any>, marketContract: string): Promise<Market[]> {
         try {
-            const nextMarketId = await this.predictionMarket.nextMarketId();
-            const currentTime = Math.floor(Date.now() / 1000);
+            // 1. Get nextMarketId
+            const nextMarketIdData = encodeFunctionData({
+                abi: MARKET_ABI,
+                functionName: "nextMarketId",
+            });
+
+            const nextMarketIdResult = this.evmClient
+                .callContract(runtime, {
+                    call: encodeCallMsg({
+                        from: "0x0000000000000000000000000000000000000000",
+                        to: marketContract as Address,
+                        data: nextMarketIdData,
+                    }),
+                })
+                .result();
+
+            const nextMarketId = decodeFunctionResult({
+                abi: MARKET_ABI,
+                functionName: "nextMarketId",
+                data: bytesToHex(nextMarketIdResult.data),
+            }) as bigint;
+
+            const now = BigInt(Math.floor(Date.now() / 1000));
             const marketsToSettle: Market[] = [];
 
-            // Check each market
-            for (let i = 0; i < Number(nextMarketId); i++) {
-                const marketData = await this.predictionMarket.markets(i);
+            // 2. Iterate through markets
+            for (let i = 0n; i < nextMarketId; i++) {
+                const marketDataCall = encodeFunctionData({
+                    abi: MARKET_ABI,
+                    functionName: "markets",
+                    args: [i],
+                });
 
-                // Check if market is past reveal deadline and not settled
-                if (Number(marketData.revealDeadline) < currentTime && !marketData.settled) {
-                    // Fetch outcomes separately (they're stored as a dynamic array)
-                    const outcomes = await this.getMarketOutcomes(i);
+                const marketResult = this.evmClient
+                    .callContract(runtime, {
+                        call: encodeCallMsg({
+                            from: "0x0000000000000000000000000000000000000000",
+                            to: marketContract as Address,
+                            data: marketDataCall,
+                        }),
+                    })
+                    .result();
 
-                    const market: Market = {
-                        id: Number(marketData.id),
-                        question: marketData.question,
-                        outcomes: outcomes,
-                        bettingDeadline: Number(marketData.bettingDeadline),
-                        revealDeadline: Number(marketData.revealDeadline),
-                        settled: marketData.settled,
-                        finalOutcomeId: Number(marketData.finalOutcomeId),
-                        totalPool: marketData.totalPool,
-                    };
+                const [
+                    id,
+                    question,
+                    bettingDeadline,
+                    revealDeadline,
+                    revealed,
+                    finalOutcomeId,
+                    settled,
+                    totalPool,
+                ] = decodeFunctionResult({
+                    abi: MARKET_ABI,
+                    functionName: "markets",
+                    data: bytesToHex(marketResult.data),
+                }) as [bigint, string, bigint, bigint, boolean, bigint, boolean, bigint];
 
-                    marketsToSettle.push(market);
+                if (!settled && now > revealDeadline) {
+                    // Fetch outcomes
+                    const outcomes = await this.getMarketOutcomes(runtime, marketContract, i);
+
+                    marketsToSettle.push({
+                        id,
+                        question,
+                        outcomes,
+                        bettingDeadline,
+                        revealDeadline,
+                        settled,
+                        finalOutcomeId,
+                        totalPool,
+                    });
                 }
             }
 
             return marketsToSettle;
         } catch (error) {
-            console.error('Error fetching markets to settle:', error);
-            throw error;
+            runtime.log(`Error in getMarketsToSettle: ${error}`);
+            return [];
         }
     }
 
     /**
      * Get outcomes for a specific market
      */
-    private async getMarketOutcomes(marketId: number): Promise<string[]> {
-        try {
-            // Note: This requires adding a view function to the contract
-            // For now, we'll need to handle this differently
-            // This is a placeholder - you may need to emit events or store outcomes differently
-            return ['Yes', 'No']; // Default for demo
-        } catch (error) {
-            console.error(`Error fetching outcomes for market ${marketId}:`, error);
-            return [];
-        }
+    async getMarketOutcomes(runtime: Runtime<any>, marketContract: string, marketId: bigint): Promise<string[]> {
+        const outcomesDataCall = encodeFunctionData({
+            abi: MARKET_ABI,
+            functionName: "getMarketOutcomes",
+            args: [marketId],
+        });
+
+        const outcomesResult = this.evmClient
+            .callContract(runtime, {
+                call: encodeCallMsg({
+                    from: "0x0000000000000000000000000000000000000000",
+                    to: marketContract as Address,
+                    data: outcomesDataCall,
+                }),
+            })
+            .result();
+
+        return decodeFunctionResult({
+            abi: MARKET_ABI,
+            functionName: "getMarketOutcomes",
+            data: bytesToHex(outcomesResult.data),
+        }) as string[];
     }
 
     /**
-     * Submit settlement to the Oracle contract
+     * Submit settlement report
      */
-    async submitSettlement(
-        marketId: number,
-        outcome: string
-    ): Promise<SettlementResult> {
-        try {
-            console.log(`Submitting settlement for market ${marketId}: ${outcome}`);
-
-            // Empty proof for hackathon version
-            const proof = '0x';
-
-            const tx = await this.oracle.receiveSettlement(marketId, outcome, proof);
-            const receipt = await tx.wait();
-
-            console.log(`Settlement submitted! Tx hash: ${receipt.hash}`);
-
-            return {
-                marketId,
-                outcome,
-                outcomeIndex: 0, // Will be determined by contract
-                consensus: true,
-                confidence: 1.0,
-                txHash: receipt.hash,
-            };
-        } catch (error) {
-            console.error('Error submitting settlement:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Verify that a settlement was successful
-     */
-    async verifySettlement(marketId: number): Promise<boolean> {
-        try {
-            const marketData = await this.predictionMarket.markets(marketId);
-            return marketData.settled;
-        } catch (error) {
-            console.error('Error verifying settlement:', error);
-            return false;
-        }
+    async submitSettlement(runtime: Runtime<any>, oracleContract: string, report: any): Promise<any> {
+        return this.evmClient
+            .writeReport(runtime, {
+                receiver: hexToBytes(oracleContract),
+                report,
+                $report: true,
+            })
+            .result();
     }
 }

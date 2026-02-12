@@ -1,16 +1,15 @@
 # PhantomBet
 
-A privacy-first decentralized prediction market with AI-powered settlement using Chainlink Runtime Environment (CRE).
+A privacy-first decentralized prediction market with AI-powered settlement using Chainlink Runtime Environment (CRE), built for the Monad Testnet.
 
 > **Bet in the shadows. Settle with truth.**
 
 ## 🚀 Features
 
-- **Privacy-Preserving Betting**: Commitment-reveal scheme keeps bets private during betting phase
-- **AI-Powered Settlement**: Automated outcome verification using GPT-4 and multiple data sources
-- **Multi-Source Verification**: Cross-references news APIs, sports data, and social media
-- **Cross-Chain Ready**: Built on Arbitrum with CRE orchestration
-- **Institutional Grade**: Compliance-friendly privacy with transparent settlement
+- **Privacy-Preserving Betting**: Commitment-reveal scheme keeps bets private during the betting phase.
+- **AI-Powered Settlement**: Automated outcome verification using GPT-4 via Chainlink CRE.
+- **Monad High Performance**: Built on Monad Testnet for ultra-fast transaction finality.
+- **Institutional Grade**: Compliance-friendly privacy with transparent, auditable settlement.
 
 ## 🏗️ Architecture
 
@@ -29,178 +28,80 @@ A privacy-first decentralized prediction market with AI-powered settlement using
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Chainlink Runtime Environment (CRE)             │
-│                   Settlement Workflow                        │
+│                   TypeScript Workflow                        │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  News API    │  │ SportsData   │  │  OpenAI GPT-4│      │
-│  │  Integration │  │  Integration │  │  Analysis    │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐│
+│  │  CoinGecko   │      │   OpenAI     │      │  Consensus   ││
+│  │ Integration  │      │   Analysis   │      │  Mechanism   ││
+│  └──────────────┘      └──────────────┘      └──────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## 📁 Project Structure
 
 ```
-chainlink-prediction-market/
-├── contracts/              # Smart contracts (Hardhat)
+phantom-bet/
+├── contracts/              # Smart contracts (Solidity/Foundry)
 │   ├── src/
 │   │   ├── PredictionMarket.sol
 │   │   └── CRESettlementOracle.sol
-│   ├── test/
-│   └── scripts/
-├── cre-workflow/          # Chainlink CRE workflow
-│   ├── src/
-│   │   └── settlement-workflow.ts
-│   └── config/
-│       └── cre.config.json
-├── frontend/              # React frontend
-│   └── src/
-│       ├── components/
-│       ├── hooks/
-│       └── utils/
-└── docs/                  # Documentation
+├── cre-workflow/           # Chainlink CRE TypeScript workflow
+│   ├── main.ts             # Main workflow logic
+│   └── config.staging.json # Environment configuration
+├── frontend/               # React (Vite) frontend
+├── project.yaml            # CRE Project settings
+└── README.md
 ```
 
 ## 🛠️ Technology Stack
 
-- **Smart Contracts**: Solidity 0.8.x, Hardhat
-- **Blockchain**: Arbitrum Sepolia (testnet)
-- **CRE**: Chainlink Runtime Environment
-- **AI**: OpenAI GPT-4o-MINI
-- **Frontend**: React, Vite, ethers.js
-- **Data Sources**: News API, SportsData.io
-
-## 📋 Prerequisites
-
-- Node.js >= 18
-- npm or yarn
-- Chainlink CRE CLI
-- Wallet with Arbitrum Sepolia ETH
-
-## 🔑 API Keys Required
-
-Create a `.env` file with:
-```
-OPENAI_API_KEY=your_openai_key
-NEWS_API_KEY=your_newsapi_key
-SPORTSDATA_API_KEY=your_sportsdata_key
-PRIVATE_KEY=your_wallet_private_key
-ARBITRUM_SEPOLIA_RPC=your_rpc_url
-```
+- **Smart Contracts**: Solidity 0.8.20
+- **Blockchain**: Monad Testnet (Chain ID 10143)
+- **CRE**: Chainlink Runtime Environment (TypeScript SDK)
+- **AI**: OpenAI GPT-4o
+- **Frontend**: React, Vite, Wagmi, RainbowKit
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
-```bash
-# Install contract dependencies
-cd contracts
-npm install
-
-# Install CRE workflow dependencies
-cd ../cre-workflow
-npm install
-
-# Install frontend dependencies
-cd ../frontend
-npm install
+### 1. Configure Environment
+Create a `.env` file in the root with your keys:
+```env
+OPENAI_API_KEY=your_openai_key
+PRIVATE_KEY=your_wallet_private_key
 ```
 
-### 2. Deploy Contracts
+### 2. Install Dependencies
 ```bash
-cd contracts
-npx hardhat compile
-npx hardhat deploy --network arbitrum-sepolia
-```
-
-### 3. Test CRE Workflow
-```bash
+# Workflow dependencies
 cd cre-workflow
-chainlink-cre simulate src/settlement-workflow.ts
+bun install
+```
+
+### 3. Simulate CRE Workflow
+```bash
+# From the project root
+cre workflow simulate cre-workflow --target=staging-settings
 ```
 
 ### 4. Run Frontend
 ```bash
 cd frontend
-npm run dev
-```
-
-## 🧪 Testing
-
-### Smart Contract Tests
-```bash
-cd contracts
-npx hardhat test
-```
-
-### CRE Workflow Simulation
-```bash
-cd cre-workflow
-chainlink-cre simulate src/settlement-workflow.ts --config config/cre.config.json
+bun install
+bun run dev
 ```
 
 ## 📖 How It Works
 
-### 1. Market Creation
-Anyone can create a prediction market with:
-- Question (e.g., "Will it rain in London tomorrow?")
-- Possible outcomes (e.g., "Yes", "No")
-- Betting deadline
+### 1. Privacy Betting
+Users submit a hash commitment of their bet. The actual outcome choice and amount are hidden until the reveal phase.
 
-### 2. Privacy-Preserving Betting
-Users place bets using commitment scheme:
-1. Generate random secret
-2. Create commitment: `hash(betAmount + outcome + secret)`
-3. Submit commitment to contract (bet is hidden)
-4. Store secret locally for later reveal
+### 2. CRE Oracle
+The TypeScript workflow running in the Chainlink Runtime Environment:
+1.  **Polls** the `PredictionMarket` for ready-to-settle markets.
+2.  **Analyzes** the question using CoinGecko (for price targets) or OpenAI (for general knowledge).
+3.  **Generates** a consensus-verified report.
+4.  **Submits** the settlement to the `CRESettlementOracle` on Monad.
 
-### 3. Reveal Phase
-After betting deadline:
-1. Users reveal their bets with the secret
-2. Contract verifies commitment matches reveal
-3. Invalid reveals are rejected
-
-### 4. AI-Powered Settlement
-CRE workflow automatically:
-1. Fetches data from multiple sources (News API, SportsData, etc.)
-2. Sends data to GPT-4 for analysis
-3. Requires consensus from 3+ sources
-4. Submits verified outcome to blockchain
-5. Triggers settlement
-
-### 5. Winner Payout
-Winners claim their share of the prize pool proportional to their bet amount.
-
-## 🔒 Privacy Guarantees
-
-- **During Betting**: All bets are hidden via cryptographic commitments
-- **After Reveal**: Bets become public (necessary for prize distribution)
-- **No Identity Required**: Wallet addresses only, no KYC
-- **Transparent Settlement**: AI decision-making is auditable
-
-## 🎥 Demo Video
-
-[Link to 3-5 minute demo video]
-
-## 📄 Chainlink Integration Points
-
-### CRE Workflow
-- **File**: `cre-workflow/src/settlement-workflow.ts`
-- **Purpose**: Orchestrates AI-powered outcome verification
-- **External Integrations**: OpenAI, News API, SportsData
-- **Blockchain Interaction**: Reads market data, submits settlements
-
-### Oracle Contract
-- **File**: `contracts/src/CRESettlementOracle.sol`
-- **Purpose**: Receives verified outcomes from CRE
-- **Chainlink Features**: CRE integration, multi-source verification
-
-## 🏆 Hackathon Tracks
-
-This project qualifies for:
-1. ✅ **Prediction Markets** - Core functionality
-2. ✅ **CRE & AI** - AI-powered settlement via CRE
-3. ✅ **Risk & Compliance** - Privacy-preserving with transparent settlement
-
-## 📝 License
+## 📄 License
 
 MIT

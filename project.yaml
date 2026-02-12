@@ -1,0 +1,27 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS FILE
+# ==========================================================================
+
+staging-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz/
+  experimental-chains:
+    - chain-selector: 10143
+      rpc-url: https://testnet-rpc.monad.xyz/
+      forwarder: "0x787A5B1527581D20AF82379CDb82A3A69De6081B"
+    - chain-selector: 2183018362218727504
+      rpc-url: https://testnet-rpc.monad.xyz/
+      forwarder: "0x787A5B1527581D20AF82379CDb82A3A69De6081B"
+
+production-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz/
+  experimental-chains:
+    - chain-selector: 10143
+      rpc-url: https://testnet-rpc.monad.xyz/
+      forwarder: "0x787A5B1527581D20AF82379CDb82A3A69De6081B"
+    - chain-selector: 2183018362218727504
+      rpc-url: https://testnet-rpc.monad.xyz/
+      forwarder: "0x787A5B1527581D20AF82379CDb82A3A69De6081B"
