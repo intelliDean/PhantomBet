@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { createKernelAccount, createKernelAccountClient, createZeroDevPaymasterClient } from "@zerodev/sdk";
+import { createKernelAccount, createKernelAccountClient } from "@zerodev/sdk";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
 import { http, createPublicClient, type Chain, type Hex } from "viem";
@@ -68,28 +68,23 @@ export const AAProvider = ({ children }: { children: ReactNode }) => {
                 });
 
                 // 4. Create Kernel Client
-                const paymasterClient = createZeroDevPaymasterClient({
-                    chain: monadTestnet as Chain,
-                    transport: http(BUNDLER_URL),
-                });
+                // const paymasterClient = createZeroDevPaymasterClient({
+                //     chain: monadTestnet as Chain,
+                //     transport: http(BUNDLER_URL),
+                // });
 
                 const client = createKernelAccountClient({
                     account,
                     chain: monadTestnet as Chain,
                     bundlerTransport: http(BUNDLER_URL),
-                    paymaster: paymasterClient,
+                    // paymaster: paymasterClient,
                     userOperation: {
-                        estimateFeesPerGas: async ({ bundlerClient }) => {
-                            try {
-                                return await bundlerClient.getUserOperationGasPrice();
-                            } catch (error) {
-                                console.warn("Bundler gas price failed, falling back to public client:", error);
-                                const gasFees = await publicClient.estimateFeesPerGas();
-                                return {
-                                    maxFeePerGas: gasFees.maxFeePerGas || 0n,
-                                    maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas || 0n,
-                                };
-                            }
+                        estimateFeesPerGas: async () => {
+                            const gasFees = await publicClient.estimateFeesPerGas();
+                            return {
+                                maxFeePerGas: gasFees.maxFeePerGas || 0n,
+                                maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas || 0n,
+                            };
                         }
                     }
                 });

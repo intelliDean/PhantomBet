@@ -73,28 +73,23 @@ export const useSessionKey = () => {
             });
 
             // 4. Create the client
-            const paymasterClient = createZeroDevPaymasterClient({
-                chain: monadTestnet as Chain,
-                transport: http(BUNDLER_URL),
-            });
+            // const paymasterClient = createZeroDevPaymasterClient({
+            //     chain: monadTestnet as Chain,
+            //     transport: http(BUNDLER_URL),
+            // });
 
             const client = createKernelAccountClient({
                 account: sessionAccount,
                 chain: monadTestnet as Chain,
                 bundlerTransport: http(BUNDLER_URL),
-                paymaster: paymasterClient,
+                // paymaster: paymasterClient,
                 userOperation: {
-                    estimateFeesPerGas: async ({ bundlerClient }) => {
-                        try {
-                            return await bundlerClient.getUserOperationGasPrice();
-                        } catch (error) {
-                            console.warn("Bundler gas price failed, falling back to public client:", error);
-                            const gasFees = await publicClient.estimateFeesPerGas();
-                            return {
-                                maxFeePerGas: gasFees.maxFeePerGas || 0n,
-                                maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas || 0n,
-                            };
-                        }
+                    estimateFeesPerGas: async () => {
+                        const gasFees = await publicClient.estimateFeesPerGas();
+                        return {
+                            maxFeePerGas: gasFees.maxFeePerGas || 0n,
+                            maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas || 0n,
+                        };
                     }
                 }
             });
