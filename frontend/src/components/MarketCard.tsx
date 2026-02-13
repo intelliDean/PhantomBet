@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
@@ -9,13 +9,13 @@ import toast from 'react-hot-toast';
 
 interface MarketCardProps {
     market: Market;
+    onActionComplete?: () => void;
 }
 
-const MarketCard = ({ market }: MarketCardProps) => {
+const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
     const { isConnected } = useAccount();
     const [betAmount, setBetAmount] = useState('0.01');
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
-    const [isRevealing, setIsRevealing] = useState(false);
 
     const publicClient = usePublicClient();
     const { writeContractAsync, isPending } = useWriteContract();
@@ -79,6 +79,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
                 // Reset form
                 setBetAmount('0.01');
                 setSelectedOutcome(null);
+                onActionComplete?.();
             } else {
                 toast.error('Bet transaction failed.', { id: 'place-bet' });
             }
@@ -114,7 +115,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
 
             if (receipt?.status === 'success') {
                 toast.success('Bet revealed successfully!', { id: 'reveal-bet' });
-                setIsRevealing(false); // Update local state if needed
+                onActionComplete?.();
             } else {
                 toast.error('Reveal transaction failed.', { id: 'reveal-bet' });
             }
@@ -148,6 +149,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
 
             if (receipt?.status === 'success') {
                 toast.success('Winnings claimed successfully!', { id: 'claim-winnings' });
+                onActionComplete?.();
             } else {
                 toast.error('Claim transaction failed.', { id: 'claim-winnings' });
             }
@@ -265,7 +267,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
         .pool { color: var(--text-secondary); }
 
         .market-question {
-          font-size: 1.4rem;
+          font-size: 1.25rem;
           line-height: 1.4;
         }
 

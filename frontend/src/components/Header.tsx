@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
+import { useMarkets } from '../hooks/useMarkets';
 import CreateMarketModal from './CreateMarketModal';
 
 const Header = () => {
   const { address, isConnected } = useAccount();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { refetch } = useMarkets();
 
   const { data: owner } = useReadContract({
     address: PREDICTION_MARKET_ADDRESS,
@@ -49,6 +51,7 @@ const Header = () => {
       <CreateMarketModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onActionComplete={refetch}
       />
 
       <style>{`
@@ -155,6 +158,20 @@ const Header = () => {
           background: var(--accent-cyan);
           color: black;
           box-shadow: 0 0 15px rgba(0, 245, 255, 0.4);
+        }
+
+        @media (max-width: 768px) {
+          .nav-links {
+            display: none;
+          }
+          
+          .logo-text {
+            display: none;
+          }
+
+          .header-content {
+            padding: 0 16px;
+          }
         }
       `}</style>
     </header>

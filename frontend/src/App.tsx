@@ -1,4 +1,3 @@
-import React from 'react';
 import Header from './components/Header';
 import MarketExplorer from './components/MarketExplorer';
 
@@ -27,7 +26,9 @@ function App() {
           </p>
 
           <div className="btn-group">
-            <button className="btn-primary">Explore Markets</button>
+            <button className="btn-primary" onClick={() => document.getElementById('markets')?.scrollIntoView({ behavior: 'smooth' })}>
+              Explore Markets
+            </button>
             <button className="btn-secondary">Learn More</button>
           </div>
         </section>
@@ -68,11 +69,30 @@ function App() {
         }
 
         .hero-subtitle {
-          font-size: 1.25rem;
+          font-size: 1.1rem;
           color: var(--text-secondary);
           max-width: 600px;
           margin: 0 auto 40px;
           line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+          .content {
+            padding: 100px 16px 40px;
+          }
+
+          .hero {
+            margin-bottom: 40px;
+          }
+
+          .btn-group {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .btn-group button {
+            width: 100%;
+          }
         }
 
         .btn-group {

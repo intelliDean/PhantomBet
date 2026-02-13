@@ -3,7 +3,7 @@ import { useMarkets } from '../hooks/useMarkets';
 import MarketCard from './MarketCard';
 
 const MarketExplorer = () => {
-  const { markets, isLoading } = useMarkets();
+  const { markets, isLoading, refetch } = useMarkets();
   const [filter, setFilter] = React.useState('All');
 
   if (isLoading) {
@@ -26,7 +26,7 @@ const MarketExplorer = () => {
   });
 
   return (
-    <div className="market-explorer">
+    <div className="market-explorer" id="markets">
       <div className="explorer-header">
         <h2 className="heading">Active Markets</h2>
         <div className="filters glass-pill">
@@ -45,7 +45,7 @@ const MarketExplorer = () => {
       <div className="market-grid">
         {filteredMarkets.length > 0 ? (
           filteredMarkets.map((market) => (
-            <MarketCard key={market.id.toString()} market={market} />
+            <MarketCard key={market.id.toString()} market={market} onActionComplete={refetch} />
           ))
         ) : (
           <div className="empty-state glass">
@@ -57,6 +57,7 @@ const MarketExplorer = () => {
       <style>{`
         .market-explorer {
           margin-top: 40px;
+          scroll-margin-top: 100px;
         }
 
         .explorer-header {
@@ -64,24 +65,33 @@ const MarketExplorer = () => {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 32px;
+          gap: 20px;
         }
 
         .filters {
           display: flex;
-          padding: 8px;
+          padding: 6px;
           gap: 4px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          max-width: 100%;
+        }
+
+        .filters::-webkit-scrollbar {
+          display: none;
         }
 
         .filter-btn {
           padding: 8px 16px;
           border-radius: 999px;
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           font-weight: 500;
           color: var(--text-secondary);
           background: transparent;
           border: none;
           cursor: pointer;
           transition: all 0.2s;
+          white-space: nowrap;
         }
 
         .filter-btn.active {
@@ -91,13 +101,13 @@ const MarketExplorer = () => {
 
         .market-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
           gap: 24px;
         }
 
         .loading-state, .empty-state {
           text-align: center;
-          padding: 80px;
+          padding: 60px 20px;
           border-radius: var(--radius-lg);
         }
 
@@ -109,6 +119,21 @@ const MarketExplorer = () => {
           border-radius: 50%;
           margin: 0 auto 16px;
           animation: spin 1s linear infinite;
+        }
+
+        @media (max-width: 768px) {
+          .explorer-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          
+          .filters {
+            width: 100%;
+          }
+
+          .market-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         @keyframes spin {

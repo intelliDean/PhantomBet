@@ -14,31 +14,48 @@ export interface Market {
 }
 
 export function useMarkets() {
-    const { data: nextMarketId } = useReadContract({
+    const { data: nextMarketId, refetch: refetchNextId } = useReadContract({
         address: PREDICTION_MARKET_ADDRESS,
         abi: PREDICTION_MARKET_ABI,
         functionName: 'nextMarketId',
+        query: {
+            refetchInterval: 10000,
+        }
     });
 
     const marketCount = nextMarketId ? Number(nextMarketId) : 0;
 
-    const { data: marketsData, isLoading: isLoadingMarkets } = useReadContracts({
+    const { data: marketsData, isLoading: isLoadingMarkets, refetch: refetchMarkets } = useReadContracts({
         contracts: Array.from({ length: marketCount }).map((_, i) => ({
             address: PREDICTION_MARKET_ADDRESS,
             abi: PREDICTION_MARKET_ABI,
             functionName: 'markets',
             args: [BigInt(i)],
         })),
+        query: {
+            refetchInterval: 10000,
+        }
     });
 
-    const { data: outcomesData, isLoading: isLoadingOutcomes } = useReadContracts({
+    const { data: outcomesData, isLoading: isLoadingOutcomes, refetch: refetchOutcomes } = useReadContracts({
         contracts: Array.from({ length: marketCount }).map((_, i) => ({
             address: PREDICTION_MARKET_ADDRESS,
             abi: PREDICTION_MARKET_ABI,
             functionName: 'getMarketOutcomes',
             args: [BigInt(i)],
         })),
+        query: {
+            refetchInterval: 10000,
+        }
     });
+
+    const refetch = async () => {
+        await Promise.all([
+            refetchNextId(),
+            refetchMarkets(),
+            refetchOutcomes()
+        ]);
+    };
 
     const isLoading = isLoadingMarkets || isLoadingOutcomes;
 
@@ -69,5 +86,5 @@ export function useMarkets() {
             .filter((m): m is Market => m !== null)
         : [];
 
-    return { markets, isLoading };
+    return { markets, isLoading, refetch };
 }

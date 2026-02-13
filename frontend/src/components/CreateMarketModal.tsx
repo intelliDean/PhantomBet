@@ -7,9 +7,10 @@ import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
 interface CreateMarketModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onActionComplete?: () => void;
 }
 
-const CreateMarketModal = ({ isOpen, onClose }: CreateMarketModalProps) => {
+const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketModalProps) => {
     const [question, setQuestion] = useState('');
     const [outcomes, setOutcomes] = useState('Yes, No');
     const [duration, setDuration] = useState('3600');
@@ -62,6 +63,7 @@ const CreateMarketModal = ({ isOpen, onClose }: CreateMarketModalProps) => {
             // 4. Update toast based on status
             if (receipt?.status === 'success') {
                 toast.success('Market created successfully!', { id: 'create-market' });
+                onActionComplete?.();
             } else {
                 toast.error('Transaction failed.', { id: 'create-market' });
             }
@@ -168,11 +170,12 @@ const CreateMarketModal = ({ isOpen, onClose }: CreateMarketModalProps) => {
                 .modal-content {
                     width: 100%;
                     max-width: 540px;
-                    padding: 40px;
-                    border-radius: 24px;
-                    background: rgba(18, 18, 20, 0.95); /* Even higher opacity */
+                    padding: 24px;
+                    border-radius: 20px;
+                    background: rgba(18, 18, 20, 0.98);
                     position: relative;
-                    overflow: hidden;
+                    overflow-y: auto;
+                    max-height: 90vh;
                     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
                 }
 
@@ -196,7 +199,7 @@ const CreateMarketModal = ({ isOpen, onClose }: CreateMarketModalProps) => {
                 }
 
                 .modal-title {
-                    font-size: 1.75rem;
+                    font-size: 1.5rem;
                     background: var(--gradient-neon);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
