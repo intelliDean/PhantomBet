@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useReadContract } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
+import { useAA } from './AAProvider';
+import { useReadContract } from 'wagmi';
 import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
 import { useMarkets } from '../hooks/useMarkets';
 import CreateMarketModal from './CreateMarketModal';
 
 const Header = () => {
-  const { address, isConnected } = useAccount();
+  const { login, logout, authenticated, user } = usePrivy();
+  const { smartAccountAddress } = useAA();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { refetch } = useMarkets();
 
@@ -16,7 +18,7 @@ const Header = () => {
     functionName: 'owner',
   });
 
-  const isOwner = isConnected && address && owner && address.toLowerCase() === (owner as string).toLowerCase();
+  const isOwner = authenticated && user?.wallet?.address && owner && user.wallet.address.toLowerCase() === (owner as string).toLowerCase();
 
   return (
     <header className="header glass">
@@ -27,7 +29,7 @@ const Header = () => {
         </div>
 
         <nav className="nav-links">
-          <a href="#" className="nav-link active">Markets</a>
+          <a href="#markets" className="nav-link active">Markets</a>
           <a href="#" className="nav-link">Activity</a>
           <a href="#" className="nav-link">Governance</a>
         </nav>
@@ -41,10 +43,18 @@ const Header = () => {
               Create Market
             </button>
           )}
-          <ConnectButton
-            accountStatus="address"
-            showBalance={false}
-          />
+
+          {authenticated ? (
+            <div className="user-info">
+              <div className="aa-badge glass-pill">
+                <span className="dot"></span>
+                {smartAccountAddress ? `${smartAccountAddress.slice(0, 6)}...${smartAccountAddress.slice(-4)}` : 'Initializing AA...'}
+              </div>
+              <button className="btn-logout" onClick={logout}>Disconnect</button>
+            </div>
+          ) : (
+            <button className="btn-login" onClick={login}>Connect Wallet</button>
+          )}
         </div>
       </div>
 
@@ -160,6 +170,59 @@ const Header = () => {
           box-shadow: 0 0 15px rgba(0, 245, 255, 0.4);
         }
 
+        .user-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .aa-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: var(--accent-cyan);
+          border-color: rgba(0, 245, 255, 0.2);
+        }
+
+        .dot {
+          width: 8px;
+          height: 8px;
+          background: var(--accent-cyan);
+          border-radius: 50%;
+          box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        .btn-login {
+          background: var(--gradient-neon);
+          color: black;
+          border: none;
+          padding: 10px 20px;
+          border-radius: var(--radius-md);
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-logout {
+          background: transparent;
+          color: var(--text-secondary);
+          border: 1px solid var(--card-border);
+          padding: 8px 16px;
+          border-radius: var(--radius-md);
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+          color: white;
+          border-color: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.05);
+        }
+
         @media (max-width: 768px) {
           .nav-links {
             display: none;
@@ -172,6 +235,10 @@ const Header = () => {
           .header-content {
             padding: 0 16px;
           }
+
+          .aa-badge {
+            display: none;
+          }
         }
       `}</style>
     </header>
@@ -179,3 +246,5 @@ const Header = () => {
 };
 
 export default Header;
+
+

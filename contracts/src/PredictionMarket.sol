@@ -59,7 +59,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         string[] calldata outcomes,
         uint256 duration,
         uint256 revealDuration
-    ) external onlyOwner {
+    ) external {
         if (duration == 0) revert Utils.InvalidBettingDeadline();
         if (outcomes.length <= 1) revert Utils.InvalidOutcomeCount();
 

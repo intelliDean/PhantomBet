@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
-import { useWriteContract, usePublicClient } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
+import { useAA } from './AAProvider';
+import { type Hex } from 'viem';
 
 interface CreateMarketModalProps {
     isOpen: boolean;
@@ -11,13 +13,13 @@ interface CreateMarketModalProps {
 }
 
 const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketModalProps) => {
+    const { kernelClient } = useAA();
     const [question, setQuestion] = useState('');
     const [outcomes, setOutcomes] = useState('Yes, No');
     const [duration, setDuration] = useState('3600');
     const [revealDuration, setRevealDuration] = useState('3600');
 
     const publicClient = usePublicClient();
-    const { writeContractAsync } = useWriteContract();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -27,20 +29,14 @@ const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketMo
         const outcomeArray = outcomes.split(',').map(s => s.trim()).filter(s => s !== '');
 
         try {
-            // Calculate fees with 50% buffer to handle Arbitrum Sepolia volatility
-            const feeData = await publicClient?.estimateFeesPerGas();
-            let maxFeePerGas = undefined;
-            let maxPriorityFeePerGas = undefined;
-
-            if (feeData?.maxFeePerGas && feeData?.maxPriorityFeePerGas) {
-                // Buffer increased to 50% (150/100)
-                maxFeePerGas = (feeData.maxFeePerGas * 150n) / 100n;
-                maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+            if (!kernelClient) {
+                toast.error('Smart account not ready');
+                return;
             }
 
-            // 1. Send transaction (User signs in wallet)
-            const hash = await writeContractAsync({
-                address: PREDICTION_MARKET_ADDRESS,
+            // 1. Send transaction via Smart Account
+            const hash = await kernelClient.writeContract({
+                address: PREDICTION_MARKET_ADDRESS as Hex,
                 abi: PREDICTION_MARKET_ABI,
                 functionName: 'createMarket',
                 args: [
@@ -48,9 +44,7 @@ const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketMo
                     outcomeArray,
                     BigInt(duration),
                     BigInt(revealDuration)
-                ],
-                maxFeePerGas,
-                maxPriorityFeePerGas
+                ]
             });
 
             // 2. Transaction signed - Close modal & show loading toast

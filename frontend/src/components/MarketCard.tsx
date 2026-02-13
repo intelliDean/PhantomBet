@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
-import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
-import { formatEther, parseEther } from 'viem';
+import { usePublicClient } from 'wagmi';
+import { formatEther, parseEther, type Hex } from 'viem';
 import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
 import { Market } from '../hooks/useMarkets';
 import { Vault } from '../utils/vault';
 import toast from 'react-hot-toast';
+import { usePrivy } from '@privy-io/react-auth';
+import { useAA } from './AAProvider';
+import { useSessionKey } from '../hooks/useSessionKey';
 
 interface MarketCardProps {
     market: Market;
@@ -13,12 +16,15 @@ interface MarketCardProps {
 }
 
 const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
-    const { isConnected } = useAccount();
+    const { authenticated } = usePrivy();
+    const { kernelClient, isAAInitialized } = useAA();
+    const { sessionClient, isActive: isSessionActive, isCreating: isCreatingSession, createSession } = useSessionKey();
+
     const [betAmount, setBetAmount] = useState('0.01');
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
+    const [isPending, setIsPending] = useState(false);
 
     const publicClient = usePublicClient();
-    const { writeContractAsync, isPending } = useWriteContract();
 
     const now = BigInt(Math.floor(Date.now() / 1000));
     const isBettingActive = now < market.bettingDeadline;
@@ -49,28 +55,23 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                 secret
             });
 
-            // Calculate fees with 50% buffer to handle Arbitrum Sepolia volatility
-            const feeData = await publicClient?.estimateFeesPerGas();
-            let maxFeePerGas = undefined;
-            let maxPriorityFeePerGas = undefined;
+            setIsPending(true);
+            const activeClient = sessionClient || kernelClient;
 
-            if (feeData?.maxFeePerGas && feeData?.maxPriorityFeePerGas) {
-                // Buffer increased to 50% (150/100)
-                maxFeePerGas = (feeData.maxFeePerGas * 150n) / 100n;
-                maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+            if (!activeClient) {
+                toast.error('Smart account not ready');
+                return;
             }
 
-            const hash = await writeContractAsync({
-                address: PREDICTION_MARKET_ADDRESS,
+            const hash = await (activeClient as any).writeContract({
+                address: PREDICTION_MARKET_ADDRESS as Hex,
                 abi: PREDICTION_MARKET_ABI,
                 functionName: 'placeBet',
                 args: [market.id, commitment],
                 value: amount,
-                maxFeePerGas,
-                maxPriorityFeePerGas
             });
 
-            toast.loading('Placing bet...', { id: 'place-bet' });
+            toast.loading(isSessionActive ? 'Placing bet instantly...' : 'Placing bet...', { id: 'place-bet' });
 
             const receipt = await publicClient?.waitForTransactionReceipt({ hash });
 
@@ -102,14 +103,22 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
         }
 
         try {
-            const hash = await writeContractAsync({
-                address: PREDICTION_MARKET_ADDRESS,
+            setIsPending(true);
+            const activeClient = sessionClient || kernelClient;
+
+            if (!activeClient) {
+                toast.error('Smart account not ready');
+                return;
+            }
+
+            const hash = await (activeClient as any).writeContract({
+                address: PREDICTION_MARKET_ADDRESS as Hex,
                 abi: PREDICTION_MARKET_ABI,
                 functionName: 'revealBet',
                 args: [market.id, BigInt(saved.outcomeIndex), saved.secret, BigInt(0)],
             });
 
-            toast.loading('Revealing bet...', { id: 'reveal-bet' });
+            toast.loading(isSessionActive ? 'Revealing instantly...' : 'Revealing bet...', { id: 'reveal-bet' });
 
             const receipt = await publicClient?.waitForTransactionReceipt({ hash });
 
@@ -130,14 +139,15 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
     };
 
     const handleClaimWinnings = async () => {
-        if (!isConnected) {
+        if (!authenticated || !kernelClient) {
             toast.error('Please connect your wallet');
             return;
         }
 
         try {
-            const hash = await writeContractAsync({
-                address: PREDICTION_MARKET_ADDRESS,
+            setIsPending(true);
+            const hash = await kernelClient.writeContract({
+                address: PREDICTION_MARKET_ADDRESS as Hex,
                 abi: PREDICTION_MARKET_ABI,
                 functionName: 'claimWinnings',
                 args: [market.id],
@@ -155,13 +165,13 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
             }
         } catch (error: any) {
             console.error(error);
-            if (error.message && error.message.includes('message channel closed')) {
-                toast.error('Wallet connection lost. Please refresh the page.', { id: 'claim-winnings' });
-            } else if (error.message && error.message.includes('NoWinnings')) {
+            if (error.message && error.message.includes('NoWinnings')) {
                 toast.error('You have no winnings to claim.', { id: 'claim-winnings' });
             } else {
                 toast.error('Failed to claim winnings', { id: 'claim-winnings' });
             }
+        } finally {
+            setIsPending(false);
         }
     };
 
@@ -177,7 +187,24 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                 ) : (
                     <span className="badge closed">Closed</span>
                 )}
-                <span className="pool">Total Pool: {formatEther(market.totalPool)} ETH</span>
+                <div className="status-right">
+                    {!isSessionActive && isAAInitialized && (isBettingActive || isRevealActive) && (
+                        <button
+                            className="btn-session-enable glass-pill"
+                            onClick={createSession}
+                            disabled={isCreatingSession}
+                        >
+                            {isCreatingSession ? 'Enabling...' : '⚡ One-Click'}
+                        </button>
+                    )}
+                    {isSessionActive && (
+                        <span className="session-active-badge glass-pill">
+                            <span className="pulse-dot"></span>
+                            Silent Mode
+                        </span>
+                    )}
+                    <span className="pool">Total Pool: {formatEther(market.totalPool)} ETH</span>
+                </div>
             </div>
 
             <h3 className="market-question">{market.question}</h3>
@@ -190,7 +217,7 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                                 {outcomes.map((o, i) => (
                                     <button
                                         key={i}
-                                        className={`outcome-btn ${selectedOutcome === i ? 'selected' : ''}`}
+                                        className={`outcome - btn ${selectedOutcome === i ? 'selected' : ''} `}
                                         onClick={() => setSelectedOutcome(i)}
                                     >
                                         {o}
@@ -207,7 +234,7 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                                 <button
                                     className="btn-main"
                                     onClick={handlePlaceBet}
-                                    disabled={!isConnected || isPending}
+                                    disabled={!authenticated || isPending}
                                 >
                                     {isPending ? 'Confirming...' : 'Place Private Bet'}
                                 </button>
@@ -238,112 +265,160 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
             )}
 
             <style>{`
-        .market-card {
-          padding: 24px;
-          border-radius: var(--radius-lg);
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
+                .market-card {
+                    padding: 24px;
+                    border-radius: var(--radius-lg);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                }
 
-        .card-status {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.85rem;
-        }
+                .card-status {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 0.85rem;
+                }
 
-        .badge {
-          padding: 4px 12px;
-          border-radius: 99px;
-          font-weight: 600;
-        }
+                .badge {
+                    padding: 4px 12px;
+                    border-radius: 99px;
+                    font-weight: 600;
+                }
 
-        .badge.active { background: rgba(0, 245, 255, 0.1); color: var(--accent-cyan); }
-        .badge.reveal { background: rgba(157, 0, 255, 0.1); color: var(--accent-purple); }
-        .badge.settled { background: rgba(0, 255, 127, 0.1); color: #00ff7f; }
-        .badge.closed { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+                .badge.active { background: rgba(0, 245, 255, 0.1); color: var(--accent-cyan); }
+                .badge.reveal { background: rgba(157, 0, 255, 0.1); color: var(--accent-purple); }
+                .badge.settled { background: rgba(0, 255, 127, 0.1); color: #00ff7f; }
+                .badge.closed { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
 
-        .pool { color: var(--text-secondary); }
+                .pool { color: var(--text-secondary); }
 
-        .market-question {
-          font-size: 1.25rem;
-          line-height: 1.4;
-        }
+                .status-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
 
-        .outcome-btns {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
+                .btn-session-enable {
+                    background: rgba(0, 245, 255, 0.05);
+                    border: 1px solid rgba(0, 245, 255, 0.2);
+                    color: var(--accent-cyan);
+                    padding: 4px 10px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
 
-        .outcome-btn {
-          padding: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: var(--radius-md);
-          color: var(--text-primary);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
+                .btn-session-enable:hover {
+                    background: rgba(0, 245, 255, 0.15);
+                    border-color: var(--accent-cyan);
+                }
 
-        .outcome-btn.selected {
-          border-color: var(--accent-cyan);
-          background: rgba(0, 245, 255, 0.05);
-        }
+                .session-active-badge {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 10px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: #00ff7f;
+                    border-color: rgba(0, 255, 127, 0.2);
+                }
 
-        .input-group {
-          display: flex;
-          gap: 8px;
-        }
+                .pulse-dot {
+                    width: 6px;
+                    height: 6px;
+                    background: #00ff7f;
+                    border-radius: 50%;
+                    box-shadow: 0 0 8px #00ff7f;
+                    animation: pulse 2s infinite;
+                }
 
-        input {
-          flex: 1;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 12px;
-          border-radius: var(--radius-md);
-          color: white;
-          outline: none;
-        }
+                @keyframes pulse {
+                    0% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.5); opacity: 0.5; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
 
-        .btn-main, .btn-reveal, .btn-claim {
-          padding: 12px 24px;
-          border-radius: var(--radius-md);
-          border: none;
-          font-weight: 700;
-          cursor: pointer;
-        }
+                .market-question {
+                    font-size: 1.25rem;
+                    line-height: 1.4;
+                }
 
-        .btn-main { background: var(--gradient-neon); color: black; }
-        .btn-reveal { background: var(--accent-purple); color: white; width: 100%; }
-        .btn-claim { background: #00ff7f; color: black; width: 100%; }
+                .outcome-btns {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
+                    margin-bottom: 16px;
+                }
 
-        .warning-banner {
-          background: rgba(255, 179, 0, 0.1);
-          border: 1px solid rgba(255, 179, 0, 0.4);
-          color: #ffb300;
-          padding: 12px;
-          border-radius: var(--radius-md);
-          font-size: 0.75rem;
-          margin-top: 12px;
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          line-height: 1.4;
-        }
+                .outcome-btn {
+                    padding: 12px;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: var(--radius-md);
+                    color: var(--text-primary);
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
 
-        .warning-banner strong {
-          font-weight: 700;
-          color: #ffd700;
-        }
+                .outcome-btn.selected {
+                    border-color: var(--accent-cyan);
+                    background: rgba(0, 245, 255, 0.05);
+                }
 
-        .warning-icon {
-          font-size: 1.1rem;
-          flex-shrink: 0;
-        }
-      `}</style>
+                .input-group {
+                    display: flex;
+                    gap: 8px;
+                }
+
+                input {
+                    flex: 1;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    padding: 12px;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    outline: none;
+                }
+
+                .btn-main, .btn-reveal, .btn-claim {
+                    padding: 12px 24px;
+                    border-radius: var(--radius-md);
+                    border: none;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+
+                .btn-main { background: var(--gradient-neon); color: black; }
+                .btn-reveal { background: var(--accent-purple); color: white; width: 100%; }
+                .btn-claim { background: #00ff7f; color: black; width: 100%; }
+
+                .warning-banner {
+                    background: rgba(255, 179, 0, 0.1);
+                    border: 1px solid rgba(255, 179, 0, 0.4);
+                    color: #ffb300;
+                    padding: 12px;
+                    border-radius: var(--radius-md);
+                    font-size: 0.75rem;
+                    margin-top: 12px;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                    line-height: 1.4;
+                }
+
+                .warning-banner strong {
+                    font-weight: 700;
+                    color: #ffd700;
+                }
+
+                .warning-icon {
+                    font-size: 1.1rem;
+                    flex-shrink: 0;
+                }
+`}</style>
         </div>
     );
 };

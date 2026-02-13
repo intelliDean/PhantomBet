@@ -3,53 +3,68 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// RainbowKit & Wagmi Setup
-import '@rainbow-me/rainbowkit/styles.css';
-import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import { WagmiProvider, http } from 'wagmi';
-import { type Chain } from 'viem';
+// Privy & Wagmi Integration
+import { PrivyProvider } from '@privy-io/react-auth';
+import { WagmiProvider, createConfig } from '@privy-io/wagmi';
+import { monadTestnet } from './chains';
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { http } from 'viem';
 
-const monadTestnet = {
-    id: 10143,
-    name: 'Monad Testnet',
-    nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-    rpcUrls: {
-        default: { http: ['https://testnet-rpc.monad.xyz/'] },
-    },
-    blockExplorers: {
-        default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
-    },
-    testnet: true,
-} as const satisfies Chain;
+import { AAProvider } from './components/AAProvider';
 
-const config = getDefaultConfig({
-    appName: 'PhantomBet',
-    projectId: 'YOUR_PROJECT_ID', // Usually configured via .env or dummy for hackathon
-    chains: [monadTestnet],
-    transports: {
-        [monadTestnet.id]: http('https://testnet-rpc.monad.xyz/'),
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnWindowFocus: false, // Prevent bursts of requests when switching tabs
+            retry: (failureCount, error: any) => {
+                // Only retry if it's a rate limit error or network error, up to 3 times
+                if (failureCount >= 3) return false;
+                if (error?.status === 429) return true;
+                return false;
+            },
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        },
     },
-    ssr: false,
 });
 
-const queryClient = new QueryClient();
+const MONAD_RPC = import.meta.env.VITE_MONAD_RPC || 'https://testnet-rpc.monad.xyz/';
+
+// Wagmi config for Privy
+const wagmiConfig = createConfig({
+    chains: [monadTestnet],
+    transports: {
+        [monadTestnet.id]: http(MONAD_RPC),
+    },
+});
+
+const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cllyhpv7m0151l0089f36fxxx';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <WagmiProvider config={config}>
+        <PrivyProvider
+            appId={PRIVY_APP_ID}
+            config={{
+                appearance: {
+                    theme: 'dark',
+                    accentColor: '#00f5ff',
+                    showWalletLoginFirst: true,
+                },
+                embeddedWallets: {
+                    ethereum: {
+                        createOnLogin: 'users-without-wallets',
+                    },
+                },
+                defaultChain: monadTestnet,
+                supportedChains: [monadTestnet],
+            }}
+        >
             <QueryClientProvider client={queryClient}>
-                <RainbowKitProvider
-                    theme={darkTheme({
-                        accentColor: '#00f5ff',
-                        accentColorForeground: 'black',
-                        borderRadius: 'medium',
-                        overlayBlur: 'small',
-                    })}
-                >
-                    <App />
-                </RainbowKitProvider>
+                <WagmiProvider config={wagmiConfig}>
+                    <AAProvider>
+                        <App />
+                    </AAProvider>
+                </WagmiProvider>
             </QueryClientProvider>
-        </WagmiProvider>
+        </PrivyProvider>
     </React.StrictMode>,
 );

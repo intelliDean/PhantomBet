@@ -19,7 +19,7 @@ export function useMarkets() {
         abi: PREDICTION_MARKET_ABI,
         functionName: 'nextMarketId',
         query: {
-            refetchInterval: 10000,
+            refetchInterval: 30000,
         }
     });
 
@@ -33,7 +33,7 @@ export function useMarkets() {
             args: [BigInt(i)],
         })),
         query: {
-            refetchInterval: 10000,
+            refetchInterval: 30000,
         }
     });
 
@@ -45,7 +45,7 @@ export function useMarkets() {
             args: [BigInt(i)],
         })),
         query: {
-            refetchInterval: 10000,
+            refetchInterval: 30000,
         }
     });
 
