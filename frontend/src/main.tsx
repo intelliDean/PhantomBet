@@ -12,20 +12,7 @@ import { http } from 'viem';
 
 import { AAProvider } from './components/AAProvider';
 
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            refetchOnWindowFocus: false, // Prevent bursts of requests when switching tabs
-            retry: (failureCount, error: any) => {
-                // Only retry if it's a rate limit error or network error, up to 3 times
-                if (failureCount >= 3) return false;
-                if (error?.status === 429) return true;
-                return false;
-            },
-            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        },
-    },
-});
+const queryClient = new QueryClient();
 
 const MONAD_RPC = import.meta.env.VITE_MONAD_RPC || 'https://testnet-rpc.monad.xyz/';
 

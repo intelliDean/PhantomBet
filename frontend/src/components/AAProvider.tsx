@@ -1,25 +1,30 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { createKernelAccount, createKernelAccountClient } from "@zerodev/sdk";
-import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
-import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
-import { http, createPublicClient, type Chain, type Hex } from "viem";
+import { createWalletClient, custom, type Chain, type Hex } from "viem";
 import { monadTestnet } from '../chains';
 
-const MONAD_RPC = import.meta.env.VITE_MONAD_RPC || 'https://testnet-rpc.monad.xyz/';
-const ZERODEV_PROJECT_ID = import.meta.env.VITE_ZERODEV_PROJECT_ID;
-const BUNDLER_URL = `https://rpc.zerodev.app/api/v3/${ZERODEV_PROJECT_ID}/chain/${monadTestnet.id}`;
-
 interface AAContextType {
-    smartAccountAddress: Hex | null;
+    address: Hex | null;
+    smartAccountAddress: Hex | null; // For compatibility
     isAAInitialized: boolean;
-    kernelClient: any | null;
+    kernelClient: any | null; // For compatibility
+    sessionClient: any | null; // For compatibility
+    isSessionActive: boolean;
+    isCreatingSession: boolean;
+    createSession: () => Promise<void>;
+    clearSession: () => void;
 }
 
 const AAContext = createContext<AAContextType>({
+    address: null,
     smartAccountAddress: null,
     isAAInitialized: false,
     kernelClient: null,
+    sessionClient: null,
+    isSessionActive: false,
+    isCreatingSession: false,
+    createSession: async () => { },
+    clearSession: () => { },
 });
 
 export const useAA = () => useContext(AAContext);
@@ -27,21 +32,16 @@ export const useAA = () => useContext(AAContext);
 export const AAProvider = ({ children }: { children: ReactNode }) => {
     const { authenticated } = usePrivy();
     const { wallets } = useWallets();
-    const [smartAccountAddress, setSmartAccountAddress] = useState<Hex | null>(null);
-    const [kernelClient, setKernelClient] = useState<any | null>(null);
-    const [isAAInitialized, setIsAAInitialized] = useState(false);
-
-    const publicClient = useMemo(() => createPublicClient({
-        chain: monadTestnet as Chain,
-        transport: http(MONAD_RPC)
-    }), []);
+    const [address, setAddress] = useState<Hex | null>(null);
+    const [walletClient, setWalletClient] = useState<any | null>(null);
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        const initAA = async () => {
+        const initWeb3 = async () => {
             if (!authenticated || !wallets.length) {
-                setSmartAccountAddress(null);
-                setKernelClient(null);
-                setIsAAInitialized(false);
+                setAddress(null);
+                setWalletClient(null);
+                setIsReady(false);
                 return;
             }
 
@@ -50,66 +50,44 @@ export const AAProvider = ({ children }: { children: ReactNode }) => {
                 await privyWallet.switchChain(monadTestnet.id);
                 const provider = await privyWallet.getEthereumProvider();
 
-                // 1. Create ECDSA Validator (Standard Owner Validator)
-                const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
-                    signer: provider as any,
-                    entryPoint: getEntryPoint("0.7"),
-                    kernelVersion: KERNEL_V3_1,
-                });
-
-                // 2. Create Kernel Account
-                const account = await createKernelAccount(publicClient, {
-                    plugins: {
-                        sudo: ecdsaValidator,
-                    },
-                    entryPoint: getEntryPoint("0.7"),
-                    kernelVersion: KERNEL_V3_1,
-                    index: BigInt(Date.now()), // Force new account to avoid stuck state
-                });
-
-                // 4. Create Kernel Client
-                // const paymasterClient = createZeroDevPaymasterClient({
-                //     chain: monadTestnet as Chain,
-                //     transport: http(BUNDLER_URL),
-                // });
-
-                const client = createKernelAccountClient({
-                    account,
+                const client = createWalletClient({
+                    account: privyWallet.address as Hex,
                     chain: monadTestnet as Chain,
-                    bundlerTransport: http(BUNDLER_URL),
-                    // paymaster: paymasterClient,
-                    userOperation: {
-                        estimateFeesPerGas: async () => {
-                            const gasFees = await publicClient.estimateFeesPerGas();
-                            return {
-                                maxFeePerGas: gasFees.maxFeePerGas || 0n,
-                                maxPriorityFeePerGas: gasFees.maxPriorityFeePerGas || 0n,
-                            };
-                        }
-                    }
+                    transport: custom(provider)
                 });
-                // Note: The above is a fallback if "SPONSOR" doesn't work directly with the types. 
-                // Let's try the cleaner "SPONSOR" first as per docs, but wait, 
-                // types might receive "SPONSOR" as a valid value? 
-                // ZeroDev docs say `paymaster: "SPONSOR"`.
 
-                setSmartAccountAddress(account.address);
-                setKernelClient(client);
-                setIsAAInitialized(true);
-                console.log("AA Wallet Initialized:", account.address);
+                setAddress(privyWallet.address as Hex);
+                setWalletClient(client);
+                setIsReady(true);
+                console.log("Web3 Ready (EOA):", privyWallet.address);
             } catch (error) {
-                console.error("Failed to initialize AA:", error);
+                console.error("Failed to initialize Web3:", error);
             }
         };
 
-        initAA();
-    }, [authenticated, wallets, publicClient]);
+        initWeb3();
+    }, [authenticated, wallets]);
+
+    // Mocking session logic to prevent breaking components immediately
+    const createSession = async () => {
+        console.log("Sessions are disabled in EOA mode.");
+    };
+
+    const clearSession = () => { };
 
     return (
-        <AAContext.Provider value={{ smartAccountAddress, isAAInitialized, kernelClient }}>
+        <AAContext.Provider value={{
+            address,
+            smartAccountAddress: address, // Map to address for compatibility
+            isAAInitialized: isReady,
+            kernelClient: walletClient, // Map to walletClient for compatibility
+            sessionClient: null,
+            isSessionActive: false,
+            isCreatingSession: false,
+            createSession,
+            clearSession
+        }}>
             {children}
         </AAContext.Provider>
     );
 };
-
-

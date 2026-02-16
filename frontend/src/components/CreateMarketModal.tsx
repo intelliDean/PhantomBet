@@ -29,13 +29,15 @@ const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketMo
         const outcomeArray = outcomes.split(',').map(s => s.trim()).filter(s => s !== '');
 
         try {
-            if (!kernelClient) {
-                toast.error('Smart account not ready');
+            const activeClient = kernelClient;
+
+            if (!activeClient) {
+                toast.error('Wallet not ready');
                 return;
             }
 
-            // 1. Send transaction via Smart Account
-            const hash = await kernelClient.writeContract({
+            // 1. Send transaction via the active client
+            const hash = await activeClient.writeContract({
                 address: PREDICTION_MARKET_ADDRESS as Hex,
                 abi: PREDICTION_MARKET_ABI,
                 functionName: 'createMarket',
@@ -49,7 +51,7 @@ const CreateMarketModal = ({ isOpen, onClose, onActionComplete }: CreateMarketMo
 
             // 2. Transaction signed - Close modal & show loading toast
             onClose();
-            toast.loading('Transaction submitted. Creating market...', { id: 'create-market' });
+            toast.loading('Creating market...', { id: 'create-market' });
 
             // 3. Wait for receipt
             const receipt = await publicClient?.waitForTransactionReceipt({ hash });

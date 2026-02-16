@@ -31,10 +31,16 @@ const config: HardhatUserConfig = {
             accounts: process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length >= 64 ? [process.env.PRIVATE_KEY] : [],
             chainId: 10143,
         },
+        "base-sepolia": {
+            url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",
+            accounts: process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length >= 64 ? [process.env.PRIVATE_KEY] : [],
+            chainId: 84532,
+        },
     },
     etherscan: {
         apiKey: {
             arbitrumSepolia: process.env.ARBISCAN_API_KEY || "",
+            baseSepolia: process.env.BASESCAN_API_KEY || "",
         },
     },
     paths: {

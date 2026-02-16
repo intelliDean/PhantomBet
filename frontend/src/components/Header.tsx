@@ -35,6 +35,8 @@ const Header = () => {
         </nav>
 
         <div className="actions">
+          {/* Session controls removed */}
+
           {isOwner && (
             <button
               className="btn-create"
@@ -48,7 +50,7 @@ const Header = () => {
             <div className="user-info">
               <div className="aa-badge glass-pill">
                 <span className="dot"></span>
-                {smartAccountAddress ? `${smartAccountAddress.slice(0, 6)}...${smartAccountAddress.slice(-4)}` : 'Initializing AA...'}
+                {smartAccountAddress ? `${smartAccountAddress.slice(0, 6)}...${smartAccountAddress.slice(-4)}` : 'Connecting...'}
               </div>
               <button className="btn-logout" onClick={logout}>Disconnect</button>
             </div>
@@ -223,6 +225,72 @@ const Header = () => {
           background: rgba(255,255,255,0.05);
         }
 
+        .session-controls {
+          margin-right: 8px;
+        }
+
+        .btn-session {
+          background: rgba(168, 85, 247, 0.1);
+          border: 1px solid #a855f7;
+          color: #a855f7;
+          padding: 8px 16px;
+          border-radius: var(--radius-md);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-size: 0.85rem;
+        }
+
+        .btn-session:hover {
+          background: #a855f7;
+          color: white;
+          box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+
+        .session-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #a855f7;
+          border-color: rgba(168, 85, 247, 0.2);
+          background: rgba(168, 85, 247, 0.05);
+        }
+
+        .dot.pulse {
+          background: #a855f7;
+          box-shadow: 0 0 8px #a855f7;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.7; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        .mini-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(168, 85, 247, 0.2);
+          border-top-color: #a855f7;
+          border-radius: 50%;
+          display: inline-block;
+          margin-right: 8px;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .flex-center {
+          display: flex;
+          align-items: center;
+        }
+
         @media (max-width: 768px) {
           .nav-links {
             display: none;
@@ -236,7 +304,7 @@ const Header = () => {
             padding: 0 16px;
           }
 
-          .aa-badge {
+          .aa-badge, .session-controls {
             display: none;
           }
         }

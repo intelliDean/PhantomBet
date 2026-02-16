@@ -8,7 +8,6 @@ import { Vault } from '../utils/vault';
 import toast from 'react-hot-toast';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAA } from './AAProvider';
-import { useSessionKey } from '../hooks/useSessionKey';
 
 interface MarketCardProps {
     market: Market;
@@ -17,8 +16,9 @@ interface MarketCardProps {
 
 const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
     const { authenticated } = usePrivy();
-    const { kernelClient, isAAInitialized } = useAA();
-    const { sessionClient, isActive: isSessionActive, isCreating: isCreatingSession, createSession } = useSessionKey();
+    const {
+        kernelClient
+    } = useAA();
 
     const [betAmount, setBetAmount] = useState('0.01');
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
@@ -56,10 +56,10 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
             });
 
             setIsPending(true);
-            const activeClient = sessionClient || kernelClient;
+            const activeClient = kernelClient;
 
             if (!activeClient) {
-                toast.error('Smart account not ready');
+                toast.error('Wallet not ready');
                 return;
             }
 
@@ -71,7 +71,7 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                 value: amount,
             });
 
-            toast.loading(isSessionActive ? 'Placing bet instantly...' : 'Placing bet...', { id: 'place-bet' });
+            toast.loading('Placing bet...', { id: 'place-bet' });
 
             const receipt = await publicClient?.waitForTransactionReceipt({ hash });
 
@@ -104,10 +104,10 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
 
         try {
             setIsPending(true);
-            const activeClient = sessionClient || kernelClient;
+            const activeClient = kernelClient;
 
             if (!activeClient) {
-                toast.error('Smart account not ready');
+                toast.error('Wallet not ready');
                 return;
             }
 
@@ -118,7 +118,7 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                 args: [market.id, BigInt(saved.outcomeIndex), saved.secret, BigInt(0)],
             });
 
-            toast.loading(isSessionActive ? 'Revealing instantly...' : 'Revealing bet...', { id: 'reveal-bet' });
+            toast.loading('Revealing bet...', { id: 'reveal-bet' });
 
             const receipt = await publicClient?.waitForTransactionReceipt({ hash });
 
@@ -188,21 +188,6 @@ const MarketCard = ({ market, onActionComplete }: MarketCardProps) => {
                     <span className="badge closed">Closed</span>
                 )}
                 <div className="status-right">
-                    {!isSessionActive && isAAInitialized && (isBettingActive || isRevealActive) && (
-                        <button
-                            className="btn-session-enable glass-pill"
-                            onClick={createSession}
-                            disabled={isCreatingSession}
-                        >
-                            {isCreatingSession ? 'Enabling...' : '⚡ One-Click'}
-                        </button>
-                    )}
-                    {isSessionActive && (
-                        <span className="session-active-badge glass-pill">
-                            <span className="pulse-dot"></span>
-                            Silent Mode
-                        </span>
-                    )}
                     <span className="pool">Total Pool: {formatEther(market.totalPool)} ETH</span>
                 </div>
             </div>
